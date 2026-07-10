@@ -21,21 +21,17 @@ function App() {
     localStorage.setItem('my-best-stores', JSON.stringify(stores));
   }, [stores]);
 
-  // ⭐️ [반응형 핵심 해결책] 화면 크기가 늘어나거나 줄어들 때 카카오맵 깨짐을 방지하는 효과
   useEffect(() => {
     const handleResize = () => {
       const map = mapRef.current;
       if (map) {
-        // 카카오맵의 레이아웃을 재계산하여 다시 그립니다.
         map.relayout();
-        // 화면 크기가 바뀌어도 원래 보고 있던 중심 좌표가 틀어지지 않게 고정합니다.
         map.setCenter(new window.kakao.maps.LatLng(mapCenter.lat, mapCenter.lng));
       }
     };
-
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, [mapCenter]); // 중심 좌표가 바뀔 때마다 최신화된 크기 감지
+  }, [mapCenter]);
 
   const handleCardClick = (store) => {
     const map = mapRef.current;
@@ -45,10 +41,6 @@ function App() {
     }
     setMapCenter({ lat: store.lat, lng: store.lng });
     setOpenStoreId(store.id);
-
-    if (window.innerWidth < 768) {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
   };
 
   const matchRegion = (address) => {
@@ -170,12 +162,11 @@ function App() {
     : stores.filter(store => store.region === selectedFilter);
 
   return (
-    // ⭐️ 모바일 전체 스크롤 꼬임 방지를 위해 md 미만에서는 고정 높이 대신 자연스러운 유연 스크롤(h-screen 오버라이드) 레이아웃 적용
-    <div className="flex flex-col md:flex-row h-auto md:h-screen w-full bg-gray-50 overflow-y-auto md:overflow-hidden">
+    <div className="flex flex-col md:flex-row h-[100dvh] w-full bg-gray-50 overflow-hidden select-none">
       
-      {/* 지도 영역 (모바일 상단 고정 배치) */}
-      {/* ⭐️ h-[40vh]~[50vh] 범위로 모바일 높이를 명시하고, shrink-0으로 감싸 지도가 찌그러지지 않게 방지합니다. */}
-      <div className="w-full md:flex-1 h-[45vh] md:h-full min-h-[300px] md:order-2 shrink-0">
+      {/* 🗺️ 지도 영역 */}
+      {/* 모바일은 h-[50vh](절반), PC(md 이상)는 다시 md:h-full로 가득 차게 설정 */}
+      <div className="w-full md:flex-1 h-[50vh] md:h-full md:order-2 shrink-0 border-b md:border-b-0 border-gray-200">
         <Map
           center={mapCenter}
           style={{ width: "100%", height: "100%" }}
@@ -197,10 +188,7 @@ function App() {
                       {store.region}
                     </span>
                     <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setOpenStoreId(null);
-                      }}
+                      onClick={(e) => { e.stopPropagation(); setOpenStoreId(null); }}
                       className="text-gray-400 hover:text-gray-600 text-xs font-bold px-1"
                     >
                       ✕
@@ -208,15 +196,12 @@ function App() {
                   </div>
                   <h4 className="text-sm font-bold text-gray-900 mb-0.5 truncate">{store.name}</h4>
                   <p className="text-[11px] text-gray-500 leading-tight mb-2 break-all">{store.address}</p>
-                  
                   {store.placeUrl && (
                     <a 
-                      href={store.placeUrl} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
+                      href={store.placeUrl} target="_blank" rel="noopener noreferrer"
                       className="block w-full text-center bg-blue-600 hover:bg-blue-700 text-white font-bold text-[11px] py-1.5 rounded transition shadow-sm"
                     >
-                      오픈시간 / 상세정보 확인
+                      상세정보 확인
                     </a>
                   )}
                 </div>
@@ -236,18 +221,86 @@ function App() {
         </Map>
       </div>
 
-      {/* 사이드바 영역 (모바일 하단 배치) */}
-      {/* ⭐️ md:order-1을 주어 PC에서는 왼쪽, 모바일에서는 지도 밑(하단)에 배치되도록 완벽히 통제합니다. */}
-      <div className="w-full md:w-1/3 bg-white p-5 md:p-6 shadow-lg z-10 h-auto md:h-full overflow-y-visible md:overflow-y-auto flex flex-col md:order-1">
-        <h1 className="text-xl md:text-2xl font-bold text-gray-800 mb-4">맛집 지도</h1>
+      {/* 📋 사이드바/리스트 영역 */}
+      {/* 모바일은 h-[50vh](절반), PC(md 이상)는 고정된 높이를 가집니다. */}
+      <div className="w-full md:w-1/3 bg-white px-4 pt-3 pb-2 md:p-6 shadow-xl z-10 h-[50vh] md:h-full flex flex-col md:order-1 overflow-hidden">
         
-        {/* 지역별 필터 버튼 */}
-        <div className="mb-5">
-          <h2 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">지역별 보기</h2>
-          <div className="flex flex-row md:flex-wrap gap-1.5 overflow-x-auto pb-2 md:pb-0 scrollbar-none">
+        {/* 상단 타이틀 및 백업 버튼 */}
+        <div className="flex justify-between items-center mb-2 md:mb-4 shrink-0">
+          <h1 className="text-lg md:text-2xl font-bold text-gray-800">나의 맛집 지도</h1>
+          <div className="flex gap-1">
+            <button
+              onClick={() => {
+                if (stores.length === 0) return alert("백업할 데이터가 없습니다.");
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(stores));
+                const dl = document.createElement('a');
+                dl.setAttribute("href", dataStr);
+                dl.setAttribute("download", `my-stores.json`);
+                dl.click();
+              }}
+              className="bg-gray-100 active:bg-gray-200 text-gray-700 font-semibold px-2 py-0.5 md:py-1 rounded text-[10px] md:text-xs transition"
+            >
+              백업
+            </button>
+            <label className="bg-gray-100 active:bg-gray-200 text-gray-700 font-semibold px-2 py-0.5 md:py-1 rounded text-[10px] md:text-xs cursor-pointer transition">
+              복구
+              <input
+                type="file" accept=".json" className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files[0];
+                  if (!file) return;
+                  const reader = new FileReader();
+                  reader.onload = (evt) => {
+                    try {
+                      const imported = JSON.parse(evt.target.result);
+                      if (Array.isArray(imported)) {
+                        const newStoresOnly = imported.filter(imp => !stores.some(ex => ex.id === imp.id));
+                        if (newStoresOnly.length === 0) return alert("이미 모두 등록된 맛집입니다!");
+                        if (confirm(`새로운 맛집 ${newStoresOnly.length}개를 합치시겠습니까?`)) {
+                          setStores([...stores, ...newStoresOnly]);
+                        }
+                      }
+                    } catch (err) { alert("오류가 발생했습니다."); }
+                  };
+                  reader.readAsText(file);
+                }}
+              />
+            </label>
+          </div>
+        </div>
+
+        {/* 폼 레이아웃: 모바일은 슬림하게 한줄, PC(md 이상)는 원래처럼 넉넉한 박스 형태 발동 */}
+        <form onSubmit={handleAddStore} className="mb-2 md:mb-5 shrink-0 md:bg-gray-50 md:p-4 md:rounded-xl md:border md:border-gray-200 md:space-y-3">
+          <div className="hidden md:flex justify-between items-center">
+            <h2 className="text-sm font-bold text-gray-700">새 맛집 등록</h2>
+            <span className="text-[11px] text-blue-600 font-medium">지도를 클릭하면 주소가 자동 선택됩니다</span>
+          </div>
+          <div className="flex gap-2">
+            <input 
+              type="text" 
+              placeholder="가게 이름, 주소 또는 지도 클릭" 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="flex-1 p-2 border border-gray-200 rounded-lg bg-gray-50 md:bg-white text-xs md:text-sm focus:outline-blue-500"
+            />
+            {/* 모바일 등록 버튼 (PC에서는 숨김) */}
+            <button type="submit" className="md:hidden bg-gray-800 active:bg-gray-900 text-white font-bold px-3.5 rounded-lg text-xs shrink-0">
+              등록
+            </button>
+          </div>
+          {/* PC 전용 등록 버튼 (모바일에서는 숨김) */}
+          <button type="submit" className="hidden md:block w-full bg-gray-800 hover:bg-gray-900 text-white font-bold py-2 px-4 rounded-lg text-sm transition shadow-sm">
+            마킹하기
+          </button>
+        </form>
+        
+        {/* 지역별 필터 버튼 (모바일은 노출 간격 최소화, PC는 넓게 배치) */}
+        <div className="mb-2 md:mb-5 shrink-0 md:border-t md:border-gray-100 md:pt-4">
+          <h2 className="hidden md:block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">지역별 보기</h2>
+          <div className="flex flex-row md:flex-wrap gap-1 md:gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none snap-x">
             <button
               onClick={() => { setSelectedFilter('전체'); setOpenStoreId(null); }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition shrink-0 ${
+              className={`px-2.5 md:px-3 py-1 md:py-1.5 rounded-md md:rounded-lg text-[11px] md:text-xs font-bold transition shrink-0 snap-start ${
                 selectedFilter === '전체' ? 'bg-teal-500 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >
@@ -259,7 +312,7 @@ function App() {
                 <button
                   key={region}
                   onClick={() => { setSelectedFilter(region); setOpenStoreId(null); }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition shrink-0 ${
+                  className={`px-2.5 md:px-3 py-1 md:py-1.5 rounded-md md:rounded-lg text-[11px] md:text-xs font-bold transition shrink-0 snap-start ${
                     selectedFilter === region ? 'bg-teal-500 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                   }`}
                 >
@@ -270,54 +323,38 @@ function App() {
           </div>
         </div>
 
-        {/* 맛집 추가 폼 */}
-        <form onSubmit={handleAddStore} className="bg-gray-50 p-4 rounded-xl border border-gray-200 mb-5 space-y-3">
-          <div className="flex justify-between items-center">
-            <h2 className="text-sm font-bold text-gray-700">새 맛집 등록</h2>
-            <span className="text-[10px] md:text-[11px] text-blue-600 font-medium">지도를 클릭해보세요</span>
-          </div>
-          <div className="flex gap-2">
-            <input 
-              type="text" 
-              placeholder="가게 이름, 주소 또는 지도 클릭" 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="flex-1 p-2 border rounded-lg bg-white text-sm focus:outline-blue-500"
-            />
-          </div>
-          <button type="submit" className="w-full bg-gray-800 hover:bg-gray-900 text-white font-bold py-2 px-4 rounded-lg text-sm transition shadow-sm">
-            마킹하기
-          </button>
-        </form>
-
-        {/* 맛집 리스트 */}
-        <div className="space-y-3 flex-1 md:overflow-y-auto pb-4">
-          <div className="text-xs font-semibold text-gray-400 mb-2">
+        {/* 📋 맛집 리스트 영역 */}
+        {/* 모바일은 작은 크기(`p-2.5`, `text-xs`), PC는 큼직한 크기(`md:p-4`, `md:text-base`)로 분기 처리 */}
+        <div className="flex-1 overflow-y-auto space-y-1.5 md:space-y-3 pr-0.5 touch-pan-y">
+          <div className="text-[10px] md:text-xs font-semibold text-gray-400 mb-1 sticky top-0 bg-white z-10 py-0.5">
             '{selectedFilter}' 맛집 목록 ({filteredStores.length}개)
           </div>
           {filteredStores.length === 0 ? (
-            <p className="text-center text-gray-400 py-8 text-sm">이 지역에 등록된 맛집이 없습니다.</p>
+            <p className="text-center text-gray-400 py-12 text-xs md:text-sm">이 지역에 등록된 맛집이 없습니다.</p>
           ) : (
             filteredStores.map((store) => (
               <div 
                 key={store.id}
                 onClick={() => handleCardClick(store)}
-                className={`p-4 rounded-xl border transition cursor-pointer flex justify-between items-start ${
+                className={`rounded-lg md:rounded-xl border transition cursor-pointer flex justify-between items-center md:items-start ${
                   openStoreId === store.id 
-                    ? 'border-blue-500 bg-blue-50/50' 
-                    : 'border-gray-100 bg-gray-50 hover:border-blue-300'
-                }`}
+                    ? 'border-blue-500 bg-blue-50/40 shadow-sm' 
+                    : 'border-gray-100 bg-gray-50/50 hover:border-blue-300 active:bg-gray-100'
+                } p-2.5 md:p-4`} // 모바일 패딩 축소, PC는 기존 패딩 유지
               >
-                <div className="flex-1 min-w-0 pr-2">
-                  <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">
-                    {store.region}
+                <div className="flex-1 min-w-0 pr-2 flex md:block items-center gap-2">
+                  <span className="inline-block font-bold rounded bg-indigo-50 text-indigo-700 border border-indigo-100 shrink-0 text-[9px] md:text-[10px] px-1.5 py-0.5">
+                    {/* 모바일 화면 폭을 위해 도 자만 제거 (PC에서는 그대로 적용해도 레이아웃 무방) */}
+                    {store.region.replace('도', '')}
                   </span>
-                  <h3 className="text-base md:text-lg font-bold text-gray-900 mt-1.5 truncate">{store.name}</h3>
-                  <p className="text-xs text-gray-500 mt-0.5 break-all">{store.address}</p>
+                  <div className="min-w-0 flex-1 md:mt-1.5">
+                    <h3 className="font-bold text-gray-900 truncate text-xs md:text-base lg:text-lg">{store.name}</h3>
+                    <p className="text-gray-400 md:text-gray-500 truncate mt-0.5 text-[10px] md:text-xs break-all">{store.address}</p>
+                  </div>
                 </div>
                 <button 
                   onClick={(e) => handleDeleteStore(store.id, e)}
-                  className="text-xs text-gray-400 hover:text-red-500 font-medium p-1 transition shrink-0"
+                  className="text-gray-400 hover:text-red-500 font-medium p-1 transition shrink-0 text-[11px] md:text-xs"
                 >
                   삭제
                 </button>
