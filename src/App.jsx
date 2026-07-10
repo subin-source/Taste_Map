@@ -36,13 +36,12 @@ function App() {
 
   // ⭐️ [핵심 추가] 마커 클릭 시 사이드바 리스트를 해당 위치로 스크롤하는 함수
   const scrollToSidebarItem = (storeId) => {
-    // 조금의 시간차를 두어 UI가 먼저 렌더링되거나 열린 후 스크롤이 매끄럽게 동작하도록 합니다.
-    setTimeout(() => {
+   setTimeout(() => {
       const element = document.getElementById(`store-card-${storeId}`);
       if (element) {
         element.scrollIntoView({
-          behavior: 'smooth', // 부드럽게 스크롤 이동
-          block: 'nearest'    // 스크롤 대상이 현재 뷰포트에 가장 가까운 곳에 멈추도록 설정
+          behavior: 'smooth', 
+          block: 'nearest'    
         });
       }
     }, 100);
@@ -154,7 +153,6 @@ function App() {
     setSearchQuery('');
     setTempClickedStore(null);
     setClickedPosition(null);
-    // 등록 즉시 해당 리스트 아이템으로 포커싱 스크롤
     scrollToSidebarItem(targetStore.id);
   };
 
@@ -202,7 +200,6 @@ function App() {
         setSearchQuery('');
         setClickedPosition(null);
         setTempClickedStore(null);
-        // 등록 즉시 해당 리스트 아이템으로 포커싱 스크롤
         scrollToSidebarItem(firstPlace.id);
       } else {
         alert('검색된 장소가 없습니다.');
@@ -241,14 +238,13 @@ function App() {
               position={{ lat: store.lat, lng: store.lng }}
               clickable={true}
               onClick={() => {
-                // ⭐️ 필터가 '전체'가 아니고 해당 지역과 다르면 강제로 필터를 변경하여 카드가 리스트에 뜨도록 유도
-                if (selectedFilter !== '전체' && selectedFilter !== store.region) {
+               if (selectedFilter !== '전체' && selectedFilter !== store.region) {
                   setSelectedFilter(store.region);
                 }
                 setOpenStoreId(store.id);
                 setTempClickedStore(null);
                 
-                // ⭐️ 마커 클릭 시 리스트 자동 동기화 스크롤 작동
+
                 scrollToSidebarItem(store.id);
               }}
             >
@@ -440,7 +436,6 @@ function App() {
           ) : (
             filteredStores.map((store) => (
               <div 
-                // ⭐️ [중요] 스크롤 타겟팅을 위해 각 카드 엘리먼트에 고유한 id를 부여합니다.
                 id={`store-card-${store.id}`}
                 key={store.id}
                 onClick={() => handleCardClick(store)}
